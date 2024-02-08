@@ -1,0 +1,10 @@
+{
+  "scripts": {
+    "go": "bun run build && python3 -m http.server --directory dist",
+    "build": "rm -rf dist && mkdir dist && cp -r static/. dist/ && bun build ./src/index.ts --outdir dist"
+  },
+  "dependencies": {
+    "@types/three": "^0.161.2",
+    "three": "^0.161.0"
+  }
+}
