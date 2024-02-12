@@ -190,6 +190,9 @@ function setName(name: string) {
 let me: { id: string, color: number } | undefined;
 let grabbing: string[] = [];
 
+let lastClientX = 0;
+let lastClientY = 0;
+
 channel.onConnect(error => {
     if (error) {
         console.error(error.message);
@@ -295,6 +298,8 @@ channel.onConnect(error => {
                 obj.setRotationFromQuaternion(new THREE.Quaternion(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w));
             }
         }
+
+        mouseMove({ clientX: lastClientX, clientY: lastClientY, preventDefault: () => { } });
     });
 });
 
@@ -311,7 +316,14 @@ let lastMouseWorldPos = { x: 0, y: 0, z: 0 };
 let lastMouseScreenPos: THREE.Vector2;
 
 // when mousemove, raycast and set cursor to pointer if we hit something
-function mouseMove(e: MouseEvent) {
+function mouseMove(e: {
+    clientX: number;
+    clientY: number;
+    preventDefault: () => void;
+}) {
+    lastClientX = e.clientX;
+    lastClientY = e.clientY;
+
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
     mouse.x = (e.clientX / width) * 2 - 1;
