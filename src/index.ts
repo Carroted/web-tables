@@ -118,7 +118,7 @@ function render(time: number) {
 }
 
 const channel = geckos({
-    url: `${location.protocol}//${location.hostname}`,
+    url: `${location.protocol}//tabledirect.carroted.org`,
     port: 9208
 });
 
