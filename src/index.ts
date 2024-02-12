@@ -194,6 +194,18 @@ let grabbing: string[] = [];
 let lastClientX = 0;
 let lastClientY = 0;
 
+let packetBuffer: { 
+    event: string,
+    data: any
+}[] = [];
+
+function emit(event: string, data: any) {
+    packetBuffer.push({
+        event,
+        data
+    });
+}
+
 channel.onConnect(error => {
     if (error) {
         console.error(error.message);
@@ -206,6 +218,14 @@ channel.onConnect(error => {
         loadingStatus.style.display = 'block';
         return
     }
+
+    // 40fps
+    setInterval(() => {
+        for (let packet of packetBuffer) {
+            channel.emit(packet.event, packet.data);
+        }
+        packetBuffer = [];
+    }, 30);
 
     channel.on('me', data => {
         let meData = data as { id: string, color: number };
@@ -233,7 +253,7 @@ channel.onConnect(error => {
         setName('');
     });
 
-    channel.emit('chat message', 'a short message sent to the server');
+    emit('chat message', 'a short message sent to the server');
 
     channel.on('physicsStep', data => {
         if (loading) {
@@ -351,16 +371,16 @@ function mouseMove(e: {
             } else {
                 setName(coll.name || '');
             }
-            channel.emit('mouseMove', { x: point.x, y: point.y, z: point.z, coll: coll.id });
+            emit('mouseMove', { x: point.x, y: point.y, z: point.z, coll: coll.id });
         } else {
             setName('');
-            channel.emit('mouseMove', { x: point.x, y: point.y, z: point.z });
+            emit('mouseMove', { x: point.x, y: point.y, z: point.z });
         }
 
         lastMouseWorldPos = point;
     } else {
         setName('');
-        channel.emit('mouseMove', { x: point.x, y: point.y, z: point.z });
+        emit('mouseMove', { x: point.x, y: point.y, z: point.z });
     }
 
     if (grabbing.length === 0) {
@@ -395,14 +415,14 @@ function mouseDown(e: MouseEvent) {
         if (intersects.length > 0) {
             const coll = mesh2Coll.get(intersects[0].object);
             if (coll) {
-                channel.emit('mouseDown', { x: point.x, y: point.y, z: point.z, coll: coll.id });
+                emit('mouseDown', { x: point.x, y: point.y, z: point.z, coll: coll.id });
             } else {
-                channel.emit('mouseDown', { x: point.x, y: point.y, z: point.z });
+                emit('mouseDown', { x: point.x, y: point.y, z: point.z });
             }
 
             lastMouseWorldPos = point;
         } else {
-            channel.emit('mouseDown', { x: point.x, y: point.y, z: point.z });
+            emit('mouseDown', { x: point.x, y: point.y, z: point.z });
         }
     }
 }
@@ -429,12 +449,12 @@ function mouseUp(e: MouseEvent) {
         if (intersects.length > 0) {
             const coll = mesh2Coll.get(intersects[0].object);
             if (coll) {
-                channel.emit('mouseUp', { x: point.x, y: point.y, z: point.z, coll: coll.id });
+                emit('mouseUp', { x: point.x, y: point.y, z: point.z, coll: coll.id });
             } else {
-                channel.emit('mouseUp', { x: point.x, y: point.y, z: point.z });
+                emit('mouseUp', { x: point.x, y: point.y, z: point.z });
             }
         } else {
-            channel.emit('mouseUp', { x: point.x, y: point.y, z: point.z });
+            emit('mouseUp', { x: point.x, y: point.y, z: point.z });
         }
     }
 
@@ -446,7 +466,7 @@ document.addEventListener('mouseup', mouseUp);
 document.addEventListener('keydown', (e) => {
     // on E, do spawnCuboid at mouse
     if (e.key === 'e') {
-        channel.emit('spawnCuboid', { x: lastMouseWorldPos.x, y: lastMouseWorldPos.y, z: lastMouseWorldPos.z });
+        emit('spawnCuboid', { x: lastMouseWorldPos.x, y: lastMouseWorldPos.y, z: lastMouseWorldPos.z });
     }
     // on R, do roll on hover object
     if (e.key === 'r') {
@@ -456,7 +476,7 @@ document.addEventListener('keydown', (e) => {
         if (intersects.length > 0) {
             const coll = mesh2Coll.get(intersects[0].object);
             if (coll) {
-                channel.emit('roll', { coll: coll.id });
+                emit('roll', { coll: coll.id });
                 console.log('rolling', coll.id);
             }
         }
