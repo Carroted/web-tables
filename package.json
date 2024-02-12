@@ -1,9 +1,12 @@
 {
   "scripts": {
     "go": "bun run build && python3 -m http.server --directory dist",
-    "build": "rm -rf dist && mkdir dist && cp -r static/. dist/ && bun build ./src/index.ts --outdir dist"
+    "build": "rm -rf dist && mkdir dist && cp -r static/. dist/ && bun build ./src/index.ts --outdir dist",
+    "dev": "bun go"
   },
   "dependencies": {
+    "@dimforge/rapier3d-compat": "^0.12.0",
+    "@geckos.io/client": "^3.0.0",
     "@types/three": "^0.161.2",
     "three": "^0.161.0"
   }
