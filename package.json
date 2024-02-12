@@ -1,7 +1,7 @@
 {
   "scripts": {
     "go": "bun run build && python3 -m http.server --directory dist",
-    "prod": "bun run build && python3 -m http.server --directory dist 80",
+    "prod": "bun run build && bun run scripts/server.ts",
     "build": "rm -rf dist && mkdir dist && cp -r static/. dist/ && bun build ./src/index.ts --outdir dist",
     "dev": "bun go"
   },
