@@ -119,7 +119,7 @@ function render(time: number) {
 
 let geckosURL = `${location.protocol}//${location.hostname}`;
 if(location.hostname === 'table.carroted.org') {
-    geckosURL = `http://tabledirect.carroted.org`;
+    geckosURL = `${location.protocol}//tabledirect.carroted.org`;
     console.log('using direct geckos.io server');
 } else {
     console.log('using local geckos.io server');
