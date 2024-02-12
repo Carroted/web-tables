@@ -15,7 +15,8 @@ const width = window.innerWidth, height = window.innerHeight;
 // init
 
 const camera = new THREE.PerspectiveCamera(70, width / height, 0.01, 10);
-camera.position.z = 1;
+camera.position.z = 2;
+camera.position.y = 2;
 
 // make it see super super far
 camera.far = 1000;
