@@ -188,6 +188,7 @@ function setName(name: string) {
 }
 
 let me: { id: string, color: number } | undefined;
+let grabbing: string[] = [];
 
 channel.onConnect(error => {
     if (error) {
@@ -216,6 +217,17 @@ channel.onConnect(error => {
     channel.on('chat message', data => {
         console.log(`You got the message "${data}" from server`);
     })
+
+    channel.on('grabbing', data => {
+        grabbing = data as string[];
+        // get all the objects that are being grabbed
+        let objects = grabbing.map(id => coll2mesh.get(id)).filter(obj => obj) as THREE.Object3D[];
+        outlinePass.selectedObjects = objects;
+        setCursor('grabbing');
+        outlinePass.visibleEdgeColor.set(1, 1, 0);
+        outlinePass.hiddenEdgeColor.set(1, 1, 0);
+        setName('');
+    });
 
     channel.emit('chat message', 'a short message sent to the server');
 
@@ -286,9 +298,17 @@ channel.onConnect(error => {
     });
 });
 
+channel.onDisconnect(() => {
+    console.log('You have been disconnected');
+    loadingCover.style.display = 'flex';
+    loadingStatus.textContent = 'You have been disconnected';
+    loadingSpinner.style.display = 'none';
+    loadingStatus.style.display = 'block';
+});
+
 
 let lastMouseWorldPos = { x: 0, y: 0, z: 0 };
-
+let lastMouseScreenPos: THREE.Vector2;
 
 // when mousemove, raycast and set cursor to pointer if we hit something
 function mouseMove(e: MouseEvent) {
@@ -296,8 +316,12 @@ function mouseMove(e: MouseEvent) {
     const mouse = new THREE.Vector2();
     mouse.x = (e.clientX / width) * 2 - 1;
     mouse.y = - (e.clientY / height) * 2 + 1;
+    lastMouseScreenPos = mouse;
     raycaster.setFromCamera(mouse, camera);
     const intersects = raycaster.intersectObjects(scene.children, true);
+    let point: THREE.Vector3 = new THREE.Vector3();
+    let ground = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+    raycaster.ray.intersectPlane(ground, point);
 
     // filter out the table
     const filtered = intersects.filter((i) => {
@@ -306,12 +330,10 @@ function mouseMove(e: MouseEvent) {
     });
 
     if (intersects.length > 0) {
-        const point = intersects[0].point;
-
         const coll = mesh2Coll.get(intersects[0].object);
 
         if (coll) {
-            if (coll.id === 'object-0') {
+            if (coll.id === 'object-0' || grabbing.length > 0) {
                 setName('');
             } else {
                 setName(coll.name || '');
@@ -325,15 +347,17 @@ function mouseMove(e: MouseEvent) {
         lastMouseWorldPos = point;
     } else {
         setName('');
-        // we have 0 clue where the mouse is now, ruh oh
-        channel.emit('mouseMove', { x: 0, y: 0, z: 0 }); // temporary
+        channel.emit('mouseMove', { x: point.x, y: point.y, z: point.z });
     }
 
-    outlinePass.selectedObjects = filtered[0] ? [filtered[0].object] : [];
-    if (filtered.length > 0) {
-        setCursor('grab');
-    } else {
-        setCursor('auto');
+    if (grabbing.length === 0) {
+
+        outlinePass.selectedObjects = filtered[0] ? [filtered[0].object] : [];
+        if (filtered.length > 0) {
+            setCursor('grab');
+        } else {
+            setCursor('auto');
+        }
     }
 
     nameText.style.left = e.clientX + 10 + 'px';
@@ -351,9 +375,11 @@ function mouseDown(e: MouseEvent) {
         mouse.y = - (e.clientY / height) * 2 + 1;
         raycaster.setFromCamera(mouse, camera);
         const intersects = raycaster.intersectObjects(scene.children, true);
+        let point: THREE.Vector3 = new THREE.Vector3();
+        let ground = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+        raycaster.ray.intersectPlane(ground, point);
 
         if (intersects.length > 0) {
-            const point = intersects[0].point;
             const coll = mesh2Coll.get(intersects[0].object);
             if (coll) {
                 channel.emit('mouseDown', { x: point.x, y: point.y, z: point.z, coll: coll.id });
@@ -363,7 +389,7 @@ function mouseDown(e: MouseEvent) {
 
             lastMouseWorldPos = point;
         } else {
-            channel.emit('mouseDown', { x: 0, y: 0, z: 0 });
+            channel.emit('mouseDown', { x: point.x, y: point.y, z: point.z });
         }
     }
 }
@@ -372,6 +398,10 @@ document.addEventListener('mousedown', mouseDown);
 
 // when mouse up, if we hit something, tell server :3
 function mouseUp(e: MouseEvent) {
+    grabbing = [];
+    outlinePass.visibleEdgeColor.set(1, 1, 1);
+    outlinePass.hiddenEdgeColor.set(1, 1, 1);
+
     if (e.button === 0) {
         const raycaster = new THREE.Raycaster();
         const mouse = new THREE.Vector2();
@@ -379,9 +409,11 @@ function mouseUp(e: MouseEvent) {
         mouse.y = - (e.clientY / height) * 2 + 1;
         raycaster.setFromCamera(mouse, camera);
         const intersects = raycaster.intersectObjects(scene.children, true);
+        let point: THREE.Vector3 = new THREE.Vector3();
+        let ground = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+        raycaster.ray.intersectPlane(ground, point);
 
         if (intersects.length > 0) {
-            const point = intersects[0].point;
             const coll = mesh2Coll.get(intersects[0].object);
             if (coll) {
                 channel.emit('mouseUp', { x: point.x, y: point.y, z: point.z, coll: coll.id });
@@ -389,9 +421,11 @@ function mouseUp(e: MouseEvent) {
                 channel.emit('mouseUp', { x: point.x, y: point.y, z: point.z });
             }
         } else {
-            channel.emit('mouseUp', { x: 0, y: 0, z: 0 });
+            channel.emit('mouseUp', { x: point.x, y: point.y, z: point.z });
         }
     }
+
+    mouseMove(e);
 }
 
 document.addEventListener('mouseup', mouseUp);
@@ -400,5 +434,18 @@ document.addEventListener('keydown', (e) => {
     // on E, do spawnCuboid at mouse
     if (e.key === 'e') {
         channel.emit('spawnCuboid', { x: lastMouseWorldPos.x, y: lastMouseWorldPos.y, z: lastMouseWorldPos.z });
+    }
+    // on R, do roll on hover object
+    if (e.key === 'r') {
+        const raycaster = new THREE.Raycaster();
+        raycaster.setFromCamera(lastMouseScreenPos, camera);
+        const intersects = raycaster.intersectObjects(scene.children, true);
+        if (intersects.length > 0) {
+            const coll = mesh2Coll.get(intersects[0].object);
+            if (coll) {
+                channel.emit('roll', { coll: coll.id });
+                console.log('rolling', coll.id);
+            }
+        }
     }
 });
