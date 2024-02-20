@@ -124,12 +124,20 @@ const channel = geckos({
 
 interface ShapeContentData {
     id: string;
+    name: string | undefined;
+    description: string | undefined;
     type: "cuboid" | "ball" | "polygon" | "line";
     color: number;
     /** 0-1 alpha */
     alpha: number;
-    name: string | undefined;
-    description: string | undefined;
+    model: string | null;
+    modelScale: number | null;
+    modelOffset: { x: number, y: number, z: number } | null;
+}
+
+interface CollisionSound {
+    sound: string;
+    volume: number;
 }
 
 interface Cuboid extends ShapeContentData {
@@ -170,6 +178,8 @@ interface PhysicsStepInfo {
     };
 
     ms: number;
+
+    sounds: CollisionSound[];
 }
 
 let loadingCover: HTMLDivElement = document.getElementById('loading') as HTMLDivElement;
@@ -194,7 +204,7 @@ let grabbing: string[] = [];
 let lastClientX = 0;
 let lastClientY = 0;
 
-let packetBuffer: { 
+let packetBuffer: {
     event: string,
     data: any
 }[] = [];
@@ -226,6 +236,8 @@ channel.onConnect(error => {
         }
         packetBuffer = [];
     }, 30);
+
+    emit('joinRoom', 'zone');
 
     channel.on('me', data => {
         let meData = data as { id: string, color: number };
@@ -290,18 +302,72 @@ channel.onConnect(error => {
                 continue;
             }
             let obj: THREE.Object3D;
-            if (content.type === "cuboid") {
-                let cuboid = content as Cuboid;
-                let geometry = new THREE.BoxGeometry(cuboid.width, cuboid.height, cuboid.depth);
-                let material = new THREE.MeshStandardMaterial({ color: cuboid.color, transparent: true, opacity: cuboid.alpha });
-                obj = new THREE.Mesh(geometry, material);
-            } else if (content.type === "ball") {
-                let ball = content as Ball;
-                let geometry = new THREE.SphereGeometry(ball.radius);
-                let material = new THREE.MeshStandardMaterial({ color: ball.color, transparent: true, opacity: ball.alpha });
-                obj = new THREE.Mesh(geometry, material);
+            if (!content.model) {
+                if (content.type === "cuboid") {
+                    let cuboid = content as Cuboid;
+                    let geometry = new THREE.BoxGeometry(cuboid.width, cuboid.height, cuboid.depth);
+                    let material = new THREE.MeshStandardMaterial({ color: cuboid.color, transparent: true, opacity: cuboid.alpha });
+                    obj = new THREE.Mesh(geometry, material);
+                } else if (content.type === "ball") {
+                    let ball = content as Ball;
+                    let geometry = new THREE.SphereGeometry(ball.radius);
+                    let material = new THREE.MeshStandardMaterial({ color: ball.color, transparent: true, opacity: ball.alpha });
+                    obj = new THREE.Mesh(geometry, material);
+                } else {
+                    console.error("unknown shape type: " + content.type);
+                    continue;
+                }
             } else {
-                console.error("unknown shape type: " + content.type);
+                let loader = new GLTFLoader();
+                loader.load(content.model, (gltf) => {
+                    let obj = gltf.scene;
+                    if (content.modelScale) {
+                        obj.scale.set(content.modelScale, content.modelScale, content.modelScale);
+                    }
+                    if (content.modelOffset) {
+                        obj.position.set(content.modelOffset.x, content.modelOffset.y, content.modelOffset.z);
+                    }
+                    let child: THREE.Mesh = obj.children[0] as THREE.Mesh;
+                    function generateTexture() {
+
+                        const canvas = document.createElement('canvas');
+                        canvas.width = 2;
+                        canvas.height = 2;
+
+                        const context = canvas.getContext('2d')!;
+                        context.fillStyle = 'white';
+                        context.fillRect(0, 1, 2, 1);
+
+                        return canvas;
+
+                    }
+                    const texture = new THREE.CanvasTexture(generateTexture());
+                    texture.magFilter = THREE.NearestFilter;
+                    texture.wrapT = THREE.RepeatWrapping;
+                    texture.wrapS = THREE.RepeatWrapping;
+                    texture.repeat.set(1, 3.5);
+                    child.material = new THREE.MeshPhysicalMaterial({
+                        roughness: 0.2,
+                        transmission: 1,
+                        color: 0xC6FF00,
+                        opacity: 1,
+                        ior: 1.45,
+                        thickness: 0,
+                        specularIntensity: 1,
+                        specularColor: 0xffffff,
+                        envMapIntensity: 1,
+                        metalness: 0,
+                        alphaMap: texture,
+                        side: THREE.DoubleSide,
+                        transparent: true
+                    });
+                    child.castShadow = true;
+                    child.receiveShadow = true;
+                    coll2mesh.set(id, obj);
+                    mesh2Coll.set(obj, content);
+                    console.log('added', obj, 'with id', id);
+                    scene.add(obj);
+                });
                 continue;
             }
             coll2mesh.set(id, obj);
