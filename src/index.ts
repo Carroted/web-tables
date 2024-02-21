@@ -9,6 +9,7 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import geckos from '@geckos.io/client';
+import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
 
 const width = window.innerWidth, height = window.innerHeight;
 
@@ -43,6 +44,16 @@ const scene = new THREE.Scene();
 const renderer = new THREE.WebGLRenderer({ alpha: true });
 renderer.setAnimationLoop(render);
 document.body.appendChild(renderer.domElement);
+
+const pmremGenerator = new THREE.PMREMGenerator(renderer);
+const hdriLoader = new RGBELoader()
+hdriLoader.load('./sky.hdr', function (texture) {
+    const envMap = pmremGenerator.fromEquirectangular(texture).texture;
+    texture.dispose();
+    scene.environment = envMap;
+    scene.background = envMap;
+    console.log('set envmap');
+});
 
 const composer = new EffectComposer(renderer);
 
@@ -308,11 +319,15 @@ channel.onConnect(error => {
                     let geometry = new THREE.BoxGeometry(cuboid.width, cuboid.height, cuboid.depth);
                     let material = new THREE.MeshStandardMaterial({ color: cuboid.color, transparent: true, opacity: cuboid.alpha });
                     obj = new THREE.Mesh(geometry, material);
+                    obj.castShadow = true;
+                    obj.receiveShadow = true;
                 } else if (content.type === "ball") {
                     let ball = content as Ball;
                     let geometry = new THREE.SphereGeometry(ball.radius);
                     let material = new THREE.MeshStandardMaterial({ color: ball.color, transparent: true, opacity: ball.alpha });
                     obj = new THREE.Mesh(geometry, material);
+                    obj.castShadow = true;
+                    obj.receiveShadow = true;
                 } else {
                     console.error("unknown shape type: " + content.type);
                     continue;
@@ -324,42 +339,12 @@ channel.onConnect(error => {
                     if (content.modelScale) {
                         obj.scale.set(content.modelScale, content.modelScale, content.modelScale);
                     }
-                    if (content.modelOffset) {
-                        obj.position.set(content.modelOffset.x, content.modelOffset.y, content.modelOffset.z);
-                    }
+
                     let child: THREE.Mesh = obj.children[0] as THREE.Mesh;
-                    function generateTexture() {
 
-                        const canvas = document.createElement('canvas');
-                        canvas.width = 2;
-                        canvas.height = 2;
-
-                        const context = canvas.getContext('2d')!;
-                        context.fillStyle = 'white';
-                        context.fillRect(0, 1, 2, 1);
-
-                        return canvas;
-
-                    }
-                    const texture = new THREE.CanvasTexture(generateTexture());
-                    texture.magFilter = THREE.NearestFilter;
-                    texture.wrapT = THREE.RepeatWrapping;
-                    texture.wrapS = THREE.RepeatWrapping;
-                    texture.repeat.set(1, 3.5);
                     child.material = new THREE.MeshPhysicalMaterial({
-                        roughness: 0.2,
-                        transmission: 1,
-                        color: 0xC6FF00,
-                        opacity: 1,
-                        ior: 1.45,
-                        thickness: 0,
-                        specularIntensity: 1,
-                        specularColor: 0xffffff,
-                        envMapIntensity: 1,
-                        metalness: 0,
-                        alphaMap: texture,
-                        side: THREE.DoubleSide,
-                        transparent: true
+                        roughness: 0.5,
+                        color: content.color
                     });
                     child.castShadow = true;
                     child.receiveShadow = true;
@@ -367,6 +352,17 @@ channel.onConnect(error => {
                     mesh2Coll.set(obj, content);
                     console.log('added', obj, 'with id', id);
                     scene.add(obj);
+                    // traverse, set all in mesh2Coll
+                    obj.traverse((child) => {
+                        if (child instanceof THREE.Mesh) {
+                            if (content.modelOffset) {
+                                child.position.set(content.modelOffset.x, content.modelOffset.y, content.modelOffset.z);
+                            }
+                            child.castShadow = true;
+                            child.receiveShadow = true;
+                            mesh2Coll.set(child, content);
+                        }
+                    });
                 });
                 continue;
             }
