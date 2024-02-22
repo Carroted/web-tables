@@ -3,10 +3,6 @@
 		"generator":"Khronos glTF Blender I/O v4.0.44",
 		"version":"2.0"
 	},
-	"extensionsUsed":[
-		"KHR_materials_transmission",
-		"KHR_materials_ior"
-	],
 	"scene":0,
 	"scenes":[
 		{
@@ -19,41 +15,7 @@
 	"nodes":[
 		{
 			"mesh":0,
-			"name":"Meeple",
-			"scale":[
-				1.2297797203063965,
-				1.9252028465270996,
-				1.2297797203063965
-			],
-			"translation":[
-				0,
-				0.41173481941223145,
-				0
-			]
-		}
-	],
-	"materials":[
-		{
-			"doubleSided":true,
-			"extensions":{
-				"KHR_materials_transmission":{
-					"transmissionFactor":1
-				},
-				"KHR_materials_ior":{
-					"ior":1.4500000476837158
-				}
-			},
-			"name":"Material.001",
-			"pbrMetallicRoughness":{
-				"baseColorFactor":[
-					0.5670563578605652,
-					1,
-					0,
-					1
-				],
-				"metallicFactor":0,
-				"roughnessFactor":0.539370059967041
-			}
+			"name":"Meeple"
 		}
 	],
 	"meshes":[
@@ -66,8 +28,7 @@
 						"NORMAL":1,
 						"TEXCOORD_0":2
 					},
-					"indices":3,
-					"material":0
+					"indices":3
 				},
 				{
 					"attributes":{
@@ -75,8 +36,7 @@
 						"NORMAL":5,
 						"TEXCOORD_0":6
 					},
-					"indices":7,
-					"material":0
+					"indices":7
 				}
 			]
 		}
@@ -87,14 +47,14 @@
 			"componentType":5126,
 			"count":2448,
 			"max":[
-				1,
-				1.8876855373382568,
-				1.318524718284607
+				1.2297797203063965,
+				4.045912742614746,
+				1.621495008468628
 			],
 			"min":[
-				-0.9999999403953552,
-				-0.2138655185699463,
-				-1.3185242414474487
+				-1.229779601097107,
+				3.2782554626464844e-07,
+				-1.6214944124221802
 			],
 			"type":"VEC3"
 		},
@@ -121,14 +81,14 @@
 			"componentType":5126,
 			"count":18,
 			"max":[
-				2.000102996826172,
-				-0.18779157102108002,
-				0.47084107995033264
+				2.459686040878296,
+				0.05019795894622803,
+				0.5790308117866516
 			],
 			"min":[
-				1.486611008644104,
-				-0.21386562287807465,
-				-0.47084107995033264
+				1.8282040357589722,
+				1.1920928955078125e-07,
+				-0.5790308117866516
 			],
 			"type":"VEC3"
 		},
@@ -204,7 +164,7 @@
 	"buffers":[
 		{
 			"byteLength":101016,
-			"uri":"meeple_web.bin"
+			"uri":"meeple_web4.bin"
 		}
 	]
 }

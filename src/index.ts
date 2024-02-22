@@ -20,7 +20,7 @@ camera.position.z = 2;
 camera.position.y = 2;
 
 // make it see super super far
-camera.far = 1000;
+camera.far = 50;
 camera.near = 0.1;
 camera.updateProjectionMatrix();
 
@@ -42,6 +42,7 @@ function setCursor(cursor: string) {
 const scene = new THREE.Scene();
 
 const renderer = new THREE.WebGLRenderer({ alpha: true });
+renderer.shadowMap.enabled = true;
 renderer.setAnimationLoop(render);
 document.body.appendChild(renderer.domElement);
 
@@ -72,19 +73,13 @@ const coll2mesh = new Map<string, THREE.Object3D>();
 const mesh2Coll = new Map<THREE.Object3D, ShapeContentData>();
 
 // now we add some lighting :3
-scene.add(new THREE.AmbientLight(0xcccccc));
+//scene.add(new THREE.AmbientLight(0xcccccc));
 
-const spotLight = new THREE.SpotLight(0xffffff, 60);
-spotLight.angle = Math.PI / 5;
-spotLight.penumbra = 0.2;
-spotLight.position.set(2, 3, 3);
-spotLight.castShadow = true;
-spotLight.shadow.camera.near = 0.1;
-spotLight.shadow.camera.far = 100;
-spotLight.shadow.mapSize.width = 1024;
-spotLight.shadow.mapSize.height = 1024;
-spotLight.shadow.camera.visible = true;
-scene.add(spotLight);
+const pointLight = new THREE.PointLight(0xffffff, 60);
+pointLight.position.set(0, 3, 0);
+pointLight.castShadow = true;
+
+scene.add(pointLight);
 
 const dirLight = new THREE.DirectionalLight(0x55505a, 3);
 dirLight.position.set(0, 3, 0);
@@ -246,7 +241,7 @@ channel.onConnect(error => {
             channel.emit(packet.event, packet.data);
         }
         packetBuffer = [];
-    }, 30);
+    }, 20);
 
     emit('joinRoom', 'zone');
 
@@ -273,6 +268,7 @@ channel.onConnect(error => {
         setCursor('grabbing');
         outlinePass.visibleEdgeColor.set(1, 1, 0);
         outlinePass.hiddenEdgeColor.set(1, 1, 0);
+        controls.enableZoom = false;
         setName('');
     });
 
@@ -317,14 +313,14 @@ channel.onConnect(error => {
                 if (content.type === "cuboid") {
                     let cuboid = content as Cuboid;
                     let geometry = new THREE.BoxGeometry(cuboid.width, cuboid.height, cuboid.depth);
-                    let material = new THREE.MeshStandardMaterial({ color: cuboid.color, transparent: true, opacity: cuboid.alpha });
+                    let material = new THREE.MeshStandardMaterial({ color: cuboid.color, });
                     obj = new THREE.Mesh(geometry, material);
                     obj.castShadow = true;
                     obj.receiveShadow = true;
                 } else if (content.type === "ball") {
                     let ball = content as Ball;
                     let geometry = new THREE.SphereGeometry(ball.radius);
-                    let material = new THREE.MeshStandardMaterial({ color: ball.color, transparent: true, opacity: ball.alpha });
+                    let material = new THREE.MeshStandardMaterial({ color: ball.color, });
                     obj = new THREE.Mesh(geometry, material);
                     obj.castShadow = true;
                     obj.receiveShadow = true;
@@ -340,14 +336,7 @@ channel.onConnect(error => {
                         obj.scale.set(content.modelScale, content.modelScale, content.modelScale);
                     }
 
-                    let child: THREE.Mesh = obj.children[0] as THREE.Mesh;
 
-                    child.material = new THREE.MeshPhysicalMaterial({
-                        roughness: 0.5,
-                        color: content.color
-                    });
-                    child.castShadow = true;
-                    child.receiveShadow = true;
                     coll2mesh.set(id, obj);
                     mesh2Coll.set(obj, content);
                     console.log('added', obj, 'with id', id);
@@ -358,6 +347,10 @@ channel.onConnect(error => {
                             if (content.modelOffset) {
                                 child.position.set(content.modelOffset.x, content.modelOffset.y, content.modelOffset.z);
                             }
+                            child.material = new THREE.MeshStandardMaterial({
+                                roughness: 0.5,
+                                color: content.color
+                            });
                             child.castShadow = true;
                             child.receiveShadow = true;
                             mesh2Coll.set(child, content);
@@ -394,6 +387,11 @@ channel.onDisconnect(() => {
     loadingStatus.style.display = 'block';
 });
 
+document.addEventListener('wheel', (e) => {
+    if (grabbing.length > 0) {
+        emit('scroll', e.deltaY * 0.00001);
+    }
+});
 
 let lastMouseWorldPos = { x: 0, y: 0, z: 0 };
 let lastMouseScreenPos: THREE.Vector2;
@@ -498,6 +496,7 @@ function mouseUp(e: MouseEvent) {
     outlinePass.hiddenEdgeColor.set(1, 1, 1);
 
     if (e.button === 0) {
+        controls.enableZoom = true;
         const raycaster = new THREE.Raycaster();
         const mouse = new THREE.Vector2();
         mouse.x = (e.clientX / width) * 2 - 1;
@@ -540,6 +539,19 @@ document.addEventListener('keydown', (e) => {
             if (coll) {
                 emit('roll', { coll: coll.id });
                 console.log('rolling', coll.id);
+            }
+        }
+    }
+    // cool new feature just dropped omg, C to Control an objet, as in you get to WASD it around omg and even space to jump and it faces the mouse omg
+    if (e.key === 'c') {
+        const raycaster = new THREE.Raycaster();
+        raycaster.setFromCamera(lastMouseScreenPos, camera);
+        const intersects = raycaster.intersectObjects(scene.children, true);
+        if (intersects.length > 0) {
+            const coll = mesh2Coll.get(intersects[0].object);
+            if (coll) {
+                emit('control', { coll: coll.id });
+                console.log('sent controlling up', coll.id);
             }
         }
     }
