@@ -71,6 +71,7 @@ composer.addPass(outputPass);
 
 const coll2mesh = new Map<string, THREE.Object3D>();
 const mesh2Coll = new Map<THREE.Object3D, ShapeContentData>();
+let controlObject: THREE.Object3D | null = null;
 
 // now we add some lighting :3
 //scene.add(new THREE.AmbientLight(0xcccccc));
@@ -272,6 +273,19 @@ channel.onConnect(error => {
         setName('');
     });
 
+    channel.on('controlling', data => {
+        let control = data as string;
+        let controlObj = coll2mesh.get(control);
+        controlObject = controlObj ? controlObj : null;
+        if (controlObj) {
+            controls.enablePan = false;
+            controls.target = controlObj.position;
+            controls.maxDistance = 3;
+            //controls.cursor = controlObj.position;
+            controls.update();
+        }
+    });
+
     emit('chat message', 'a short message sent to the server');
 
     channel.on('physicsStep', data => {
@@ -370,12 +384,24 @@ channel.onConnect(error => {
             let obj = coll2mesh.get(id);
             if (obj) {
                 let transform = stepInfo.delta.shapeTransforms[id];
+                // if its controlObject, we have to get its delta and apply it to camera
+                if (controlObject === obj) {
+                    let delta = new THREE.Vector3();
+                    delta.x = transform.x - obj.position.x;
+                    delta.y = transform.y - obj.position.y;
+                    delta.z = transform.z - obj.position.z;
+                    camera.position.add(delta);
+                    //controls.update();
+                }
                 obj.position.set(transform.x, transform.y, transform.z);
                 obj.setRotationFromQuaternion(new THREE.Quaternion(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w));
             }
         }
 
+
+
         mouseMove({ clientX: lastClientX, clientY: lastClientY, preventDefault: () => { } });
+
     });
 });
 
@@ -554,5 +580,85 @@ document.addEventListener('keydown', (e) => {
                 console.log('sent controlling up', coll.id);
             }
         }
+    }
+    if (e.key === 'Escape') {
+        e.preventDefault();
+        emit('uncontrol', {});
+        controls.enablePan = true;
+        controlObject = null;
+        controls.maxDistance = Infinity;
+        controls.target = new THREE.Vector3();
+        controls.update();
+    }
+
+    if (e.key === 'w') {
+        emit('controlKeyDown', 'w');
+    }
+    if (e.key === 'a') {
+        emit('controlKeyDown', 'a');
+    }
+    if (e.key === 's') {
+        emit('controlKeyDown', 's');
+    }
+    if (e.key === 'd') {
+        emit('controlKeyDown', 'd');
+    }
+    if (e.key === ' ') {
+        emit("controlJump", {});
+    }
+});
+
+document.addEventListener('keyup', (e) => {
+    if (e.key === 'w') {
+        emit('controlKeyUp', 'w');
+    }
+    if (e.key === 'a') {
+        emit('controlKeyUp', 'a');
+    }
+    if (e.key === 's') {
+        emit('controlKeyUp', 's');
+    }
+    if (e.key === 'd') {
+        emit('controlKeyUp', 'd');
+    }
+});
+
+controls.addEventListener('change', () => {
+    if (controlObject) {
+        /*let q = new THREE.Quaternion();
+        q.setFromEuler(new THREE.Euler(0, camera.rotation.y + (90 * Math.PI / 180), 0));
+        emit('controlRotation', {
+            x: camera.quaternion.x,
+            y: camera.quaternion.y,
+            z: camera.quaternion.z,
+            w: camera.quaternion.w
+        });
+        console.log('sent controlRotation for Y', camera.rotation.y);*/
+        // basically what we actually wanna do is send a quaternion that is the camera rot but without X or Z rot
+        let vector = new THREE.Vector3();
+        camera.getWorldDirection(vector);
+        let theta = Math.atan2(vector.x, vector.z);
+        theta += 90 * Math.PI / 180;
+
+        emit('controlRotation', {
+            x: 0,
+            y: Math.sin(theta / 2),
+            z: 0,
+            w: Math.cos(theta / 2)
+        });
+
+        // since we use that to make the quaternion, server can use this to calculcate directions without THREE:
+        /* function getForwardVector(quat: { x: number, y: number, z: number, w: number }) {
+            let x = 2 * (quat.x * quat.z + quat.w * quat.y);
+            let y = 2 * (quat.y * quat.z - quat.w * quat.x);
+            let z = 1 - 2 * (quat.x * quat.x + quat.y * quat.y);
+            return { x, y, z };
+        } */
+        /* function getRightVector(quat: { x: number, y: number, z: number, w: number }) {
+            let x = 1 - 2 * (quat.y * quat.y + quat.z * quat.z);
+            let y = 2 * (quat.x * quat.y + quat.w * quat.z);
+            let z = 2 * (quat.x * quat.z - quat.w * quat.y);
+            return { x, y, z };
+        } */
     }
 });
