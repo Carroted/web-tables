@@ -140,6 +140,7 @@ interface ShapeContentData {
     model: string | null;
     modelScale: number | null;
     modelOffset: { x: number, y: number, z: number } | null;
+    interactive: boolean;
 }
 
 interface CollisionSound {
@@ -442,17 +443,17 @@ function mouseMove(e: {
     let ground = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
     raycaster.ray.intersectPlane(ground, point);
 
-    // filter out the table
+    // filter out uninterractive objects
     const filtered = intersects.filter((i) => {
         let data = mesh2Coll.get(i.object);
-        return data ? data.id !== 'object-0' : true;
+        return data?.interactive;
     });
 
     if (intersects.length > 0) {
         const coll = mesh2Coll.get(intersects[0].object);
 
         if (coll) {
-            if (coll.id === 'object-0' || grabbing.length > 0) {
+            if (!coll.interactive || grabbing.length > 0) {
                 setName('');
             } else {
                 setName(coll.name || '');
@@ -500,7 +501,7 @@ function mouseDown(e: MouseEvent) {
 
         if (intersects.length > 0) {
             const coll = mesh2Coll.get(intersects[0].object);
-            if (coll) {
+            if (coll && coll.interactive) {
                 emit('mouseDown', { x: point.x, y: point.y, z: point.z, coll: coll.id });
             } else {
                 emit('mouseDown', { x: point.x, y: point.y, z: point.z });
@@ -562,7 +563,7 @@ document.addEventListener('keydown', (e) => {
         const intersects = raycaster.intersectObjects(scene.children, true);
         if (intersects.length > 0) {
             const coll = mesh2Coll.get(intersects[0].object);
-            if (coll) {
+            if (coll && coll.interactive) {
                 emit('roll', { coll: coll.id });
                 console.log('rolling', coll.id);
             }
@@ -575,7 +576,7 @@ document.addEventListener('keydown', (e) => {
         const intersects = raycaster.intersectObjects(scene.children, true);
         if (intersects.length > 0) {
             const coll = mesh2Coll.get(intersects[0].object);
-            if (coll) {
+            if (coll && coll.interactive) {
                 emit('control', { coll: coll.id });
                 console.log('sent controlling up', coll.id);
             }
@@ -624,41 +625,15 @@ document.addEventListener('keyup', (e) => {
 });
 
 controls.addEventListener('change', () => {
-    if (controlObject) {
-        /*let q = new THREE.Quaternion();
-        q.setFromEuler(new THREE.Euler(0, camera.rotation.y + (90 * Math.PI / 180), 0));
-        emit('controlRotation', {
-            x: camera.quaternion.x,
-            y: camera.quaternion.y,
-            z: camera.quaternion.z,
-            w: camera.quaternion.w
-        });
-        console.log('sent controlRotation for Y', camera.rotation.y);*/
-        // basically what we actually wanna do is send a quaternion that is the camera rot but without X or Z rot
-        let vector = new THREE.Vector3();
-        camera.getWorldDirection(vector);
-        let theta = Math.atan2(vector.x, vector.z);
-        theta += 90 * Math.PI / 180;
+    let vector = new THREE.Vector3();
+    camera.getWorldDirection(vector);
+    let theta = Math.atan2(vector.x, vector.z);
+    theta += 90 * Math.PI / 180;
 
-        emit('controlRotation', {
-            x: 0,
-            y: Math.sin(theta / 2),
-            z: 0,
-            w: Math.cos(theta / 2)
-        });
-
-        // since we use that to make the quaternion, server can use this to calculcate directions without THREE:
-        /* function getForwardVector(quat: { x: number, y: number, z: number, w: number }) {
-            let x = 2 * (quat.x * quat.z + quat.w * quat.y);
-            let y = 2 * (quat.y * quat.z - quat.w * quat.x);
-            let z = 1 - 2 * (quat.x * quat.x + quat.y * quat.y);
-            return { x, y, z };
-        } */
-        /* function getRightVector(quat: { x: number, y: number, z: number, w: number }) {
-            let x = 1 - 2 * (quat.y * quat.y + quat.z * quat.z);
-            let y = 2 * (quat.x * quat.y + quat.w * quat.z);
-            let z = 2 * (quat.x * quat.z - quat.w * quat.y);
-            return { x, y, z };
-        } */
-    }
+    emit('camRotation', {
+        x: 0,
+        y: Math.sin(theta / 2),
+        z: 0,
+        w: Math.cos(theta / 2)
+    });
 });
