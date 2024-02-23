@@ -21,7 +21,7 @@ camera.position.y = 2;
 
 // make it see super super far
 camera.far = 50;
-camera.near = 0.1;
+camera.near = 0.01;
 camera.updateProjectionMatrix();
 
 const controls = new OrbitControls(camera, document.body);
