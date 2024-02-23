@@ -603,6 +603,9 @@ document.addEventListener('keydown', (e) => {
     if (e.key === 'd') {
         emit('controlKeyDown', 'd');
     }
+    if (e.key === ' ') {
+        emit("controlJump", {});
+    }
 });
 
 document.addEventListener('keyup', (e) => {
